@@ -5,5 +5,5 @@
     "description": "Deploy the AzureAD Guest Lifecycle Management Solution.",
     "summary": "This ARM Template deploys the AzureAD Guest Lifecycle Management Solution.",
     "githubUsername": "Mindcore",
-    "dateUpdated": "2020-10-07"
+    "dateUpdated": "2021-05-12"
   }

@@ -110,7 +110,7 @@
                         },
                         {
                             "name": "WEBSITE_CONTENTSHARE",
-                            "value": "[toLower(concat('guestreview', uniqueString(resourceGroup().id), 0, 6))]"
+                            "value": "[toLower(concat('guestlifecyclemgmt', uniqueString(resourceGroup().id), 0, 6))]"
                         },
                         {
                             "name": "FUNCTIONS_EXTENSION_VERSION",
