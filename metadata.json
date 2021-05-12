@@ -1,0 +1,9 @@
+{
+    "$schema": "https://aka.ms/azure-quickstart-templates-metadata-schema#",
+    "type": "QuickStart",
+    "itemDisplayName": "Azure AD Guest Lifecycle Management solution",
+    "description": "Deploy the AzureAD Guest Lifecycle Management Solution.",
+    "summary": "This ARM Template deploys the AzureAD Guest Lifecycle Management Solution.",
+    "githubUsername": "Mindcore",
+    "dateUpdated": "2020-10-07"
+  }

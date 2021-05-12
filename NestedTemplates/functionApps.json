@@ -1,0 +1,184 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "functionAppName": {
+            "type": "String",
+            "defaultValue": "[concat('func-','guestlifecyclemgmt-', substring(uniqueString(resourceGroup().id), 0, 6))]",
+            "metadata": {
+                "description": "Unique name for the Azure Function Web App"
+            }
+        },
+        "appServicePlanName": {
+            "type": "string",
+            "defaultValue": "[concat('plan-', parameters('functionAppName'))]",
+            "metadata": {
+                "description": "Name for the Azure Function Web App App service plan"
+            }
+        },
+        "storageAccountName": {
+            "type": "string",
+            "defaultValue": "[concat('st','guestlifecyclemgmt',substring(uniqueString(resourceGroup().id), 0, 6))]",
+            "metadata": {
+                "description": "Unique Name of the Storage Account"
+            }
+        },
+        "appInsightsName": {
+            "type": "string",
+            "defaultValue": "[concat('appi-',parameters('functionAppName'))]",
+            "metadata": {
+                "description": "Name for the Application Insights"
+            }
+        },
+        "keyVaultName": {
+            "type": "String",
+            "defaultValue": "[concat('kv-','guestlifecyclemgmt-', substring(uniqueString(resourceGroup().id), 0, 6))]",
+            "metadata": {
+                "description": "Unique name for the Key Vault"
+            }
+        },
+        "tenantId": {
+            "type": "secureObject",
+            "defaultValue": {
+                "secretName": "TenantID",
+                "secretValue": ""
+            },
+            "metadata": {
+                "description": "Your Azure AD Tenant ID"
+            }
+        },
+        "applicationId": {
+            "type": "secureObject",
+            "defaultValue": {
+                "secretName": "ApplicationID",
+                "secretValue": ""
+            },
+            "metadata": {
+                "description": "Application ID of the App registration"
+            }
+        },
+        "clientSecret": {
+            "type": "secureObject",
+            "defaultValue": {
+                "secretName": "ClientSecret",
+                "secretValue": ""
+            },
+            "metadata": {
+                "description": "Client Secret of the App registration"
+            }
+        }
+    },
+    "variables": {
+        "fetchLastSigninAndManagerFunction": "FetchLastSigninAndManager",
+        "populateGuestInviterFunction": "PopulateGuestInviterAsManager",
+        "updateGuestManagementMetaFunction": "UpdateGuestManagementMeta"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2020-06-01",
+            "name": "[parameters('functionAppName')]",
+            "location": "[resourceGroup().location]",
+            "kind": "functionapp",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "enabled": true,
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms/', parameters('appServicePlanName'))]",
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "ApplicationID",
+                            "value": "[concat('@Microsoft.KeyVault(SecretUri=https://', parameters('keyVaultName'), '.vault.azure.net/secrets/',  parameters('applicationId').secretName, ')')]"
+                        },
+                        {
+                            "name": "ClientSecret",
+                            "value": "[concat('@Microsoft.KeyVault(SecretUri=https://', parameters('keyVaultName'), '.vault.azure.net/secrets/',  parameters('clientSecret').secretName, ')')]"
+                        },
+                        {
+                            "name": "TenantID",
+                            "value": "[concat('@Microsoft.KeyVault(SecretUri=https://', parameters('keyVaultName'), '.vault.azure.net/secrets/',  parameters('tenantId').secretName, ')')]"
+                        },
+                        {
+                            "name": "AzureWebJobsStorage",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=',parameters('storageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2019-06-01').keys[0].value,';EndpointSuffix=','core.windows.net')]"
+                        },
+                        {
+                            "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=',parameters('storageAccountName'),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2019-06-01').keys[0].value,';EndpointSuffix=','core.windows.net')]"
+                        },
+                        {
+                            "name": "WEBSITE_CONTENTSHARE",
+                            "value": "[toLower(concat('guestreview', uniqueString(resourceGroup().id), 0, 6))]"
+                        },
+                        {
+                            "name": "FUNCTIONS_EXTENSION_VERSION",
+                            "value": "~3"
+                        },
+                        {
+                            "name": "FUNCTIONS_WORKER_RUNTIME",
+                            "value": "powershell"
+                        },
+                        {
+                            "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                            "value": "[reference(resourceId('microsoft.insights/components/', parameters('appInsightsName')), '2015-05-01').InstrumentationKey]"
+                        }
+                    ],
+                    "powerShellVersion": "~7"
+                }
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2020-06-01",
+            "name": "[parameters('appServicePlanName')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Y1",
+                "tier": "Dynamic"
+            },
+            "properties": {
+                "name": "[parameters('appServicePlanName')]",
+                "computeMode": "Dynamic"
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2019-06-01",
+            "name": "[parameters('storageAccountName')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Standard_LRS",
+                "tier": "Standard"
+            },
+            "kind": "Storage",
+            "properties": {
+                "networkAcls": {
+                    "bypass": "AzureServices",
+                    "virtualNetworkRules": [],
+                    "ipRules": [],
+                    "defaultAction": "Allow"
+                }
+            }
+        },
+        {
+            "apiVersion": "2015-05-01",
+            "name": "[parameters('appInsightsName')]",
+            "type": "Microsoft.Insights/components",
+            "kind": "web",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "[concat('hidden-link:', resourceGroup().id, '/providers/Microsoft.Web/sites/', parameters('functionAppName'))]": "Resource"
+            },
+            "properties": {
+                "Application_Type": "web",
+                "ApplicationId": "[parameters('appInsightsName')]"
+            }
+        }
+    ]
+}
