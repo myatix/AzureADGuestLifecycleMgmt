@@ -76,7 +76,7 @@
         }
     },
     "variables": {
-        "nestedTemplateFolder": "https://raw.githubusercontent.com/mindcore/GuestLifecycleMgmt/master/NestedTemplates/",
+        "nestedTemplateFolder": "https://raw.githubusercontent.com/myatix/AzureADGuestLifecycleMgmt/master/NestedTemplates/",
         "keyVaultTemplateUrl": "keyVault.json",
         "logicAppTemplateUrl": "logicApp.json",
         "functionAppTemplateUrl": "functionApps.json"

@@ -1,7 +1,7 @@
 Automated solution which offers an Azure AD Access review like user experience to get regular approval for guest accounts.
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fmindcore%2FAzureADGuestLifecycleMgmt%2Fmaster%2FguestReview.json)
-[![Visualize](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/visualizebutton.svg?sanitize=true)](http://armviz.io/#/?load=https%3A%2F%2Fraw.githubusercontent.com%2Fmindcore%2FAzureADGuestLifecyclemgmt%2Fmaster%2FguestReview.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fmyatix%2FAzureADGuestLifecycleMgmt%2Fmaster%2FguestLifecycleMgmt.json)
+[![Visualize](https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/1-CONTRIBUTION-GUIDE/images/visualizebutton.svg?sanitize=true)](http://armviz.io/#/?load=https%3A%2F%2Fraw.githubusercontent.com%2Fmyatix%2FAzureADGuestLifecyclemgmt%2Fmaster%2FguestLifecycleMgmt.json)
 
 ## Notable features
 
