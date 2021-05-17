@@ -1,4 +1,4 @@
-$appName = "AzureDGuestLifecycleMgmt" # Maximum 32 characters
+$appName = "AzureADGuestLifecycleMgmt" # Maximum 32 characters
 $adalUrlIdentifier = "https://mindcore.dk/AzureADGuestLifecycleMgmt"
 $appReplyUrl = "https://www.mindcore.dk"
 #$pwd = Read-Host -Prompt 'Enter a secure password for your certificate!'
@@ -6,7 +6,7 @@ $appReplyUrl = "https://www.mindcore.dk"
 
 do {
     $pwd = Read-Host "-ENTER A SECURE CERTIFICATE PASSWORD-`n`nYour password must meet the following requirements:  
-`n`nAt least one upper case letter [A-Z]`nAt least one lower case letter [a-z]`nAt least one number [0-9]`nAt least one special character (!,@,%,^,&,$,_)`nPassword length must be 7 to 25 characters.`n`n`nEnter a certificate password"
+`n`nAt least one upper case letter [A-Z]`nAt least one lower case letter [a-z]`nAt least one number [0-9]`nAt least one special character (!,@,#,%,^,&,$,_)`nPassword length must be 7 to 25 characters.`n`n`nEnter a certificate password"
 
     if(($pwd -cmatch '[a-z]') -and ($pwd -cmatch '[A-Z]') -and ($pwd -match '\d') -and ($pwd.length -match '^([7-9]|[1][0-9]|[2][0-5])$') -and ($pwd -match '!|@|#|%|^|&|$|_')) 
 { 
@@ -70,6 +70,7 @@ $consentUri = "https://login.microsoftonline.com/$($tenant.ObjectId)/adminconsen
 $consentUri | clip
 Write-Host "Consent URL is copied to your clipboard - paste it into a browser, and ignore the redirect" -ForegroundColor Green
 Write-Host $consentUri -ForegroundColor Blue
+Start "$consentUri"
 Read-Host -Prompt "Press ENTER after consenting to the Security popup."
 
 $sp = Get-AzureADServicePrincipal | ? AppId -eq $application.AppId
@@ -100,7 +101,7 @@ Connect-AzureAD -TenantId $tenant.ObjectId -ApplicationId  $Application.AppId -C
 #Install-Module -Name Az -AllowClobber
 Import-Module -Name Az
 #Clear-AzContext
-Connect-AzAccount
+Connect-AzAccount -Tenant "$tenant.ObjectId"
 # Create a New Resource Group for AzureADGuestLifecycleMgmt
 Write-Host "Creating Azure resource group." -ForegroundColor Green
 
@@ -116,7 +117,7 @@ Write-Host "Adding certificate to Azure Key Vault." -ForegroundColor Green
 
 $keyVaultName = "AzureADGuestLifecycleMgmt"
 $certificateName = $appName
-$certPwd = Read-Host -Prompt "Enter the password you chose for "+$appName+".pfx"
+$certPwd = Read-Host -Prompt "Enter the password you chose for "$appName".pfx"
 $certPwd = ConvertTo-SecureString -String $pwd -AsPlainText -Force
 Import-AzureKeyVaultCertificate -VaultName "$keyVaultName" -Name "$certificateName" -FilePath ".\AzureADGuestLifecycleMgmt.pfx" -Password $certPwd
 
