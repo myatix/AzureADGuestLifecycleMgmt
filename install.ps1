@@ -1,6 +1,6 @@
 $appName = "AzureADGuestLifecycleMgmt" # Maximum 32 characters
 $adalUrlIdentifier = "https://mindcore.dk/AzureADGuestLifecycleMgmt"
-$appReplyUrl = "https://www.mindcore.dk"
+$appReplyUrl = "https://localhost"
 #$pwd = Read-Host -Prompt 'Enter a secure password for your certificate!'
 
 
@@ -59,7 +59,7 @@ $reqGraph = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceA
 $reqGraph.ResourceAppId = $svcPrincipal.AppId
 $reqGraph.ResourceAccess = $appPermission, $appPermission2
 
-# Create Azure Active Directory Application (ADAL App)
+# Create Azure Active Directory Application (ADAL App needs upgrading to MSAL)
 $application = New-AzureADApplication -DisplayName "$appName" -IdentifierUris $adalUrlIdentifier -ReplyUrls $appReplyUrl -RequiredResourceAccess $reqGraph
 New-AzureADApplicationKeyCredential -ObjectId $application.ObjectId -CustomKeyIdentifier "$appName" -Type AsymmetricX509Cert -Usage Verify -Value $keyValue -StartDate $currentDate -EndDate $endDate.AddDays(-1)
 
@@ -117,7 +117,7 @@ Write-Host "Adding certificate to Azure Key Vault." -ForegroundColor Green
 
 $keyVaultName = "AzureADGuestLifecycleMgmt"
 $certificateName = $appName
-$certPwd = Read-Host -Prompt "Enter the password you chose for "$appName".pfx"
+$certPwd = Read-Host -Prompt "Please enter the password you specified for the certificate.
 $certPwd = ConvertTo-SecureString -String $pwd -AsPlainText -Force
 Import-AzureKeyVaultCertificate -VaultName "$keyVaultName" -Name "$certificateName" -FilePath ".\AzureADGuestLifecycleMgmt.pfx" -Password $certPwd
 
