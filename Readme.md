@@ -36,7 +36,7 @@ AuditLogs
 
 ```powershell
 # Create new resource group
-$rgName = "RG_guestlifecyclemgmt-euw-tst-01"
+$rgName = "RG_AzureADGuestLifecycleMgmt"
 $rgLocation = "West Europe"
 New-AzResourceGroup -Name $rgName -Location $rgLocation
 
