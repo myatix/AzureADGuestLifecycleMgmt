@@ -1,7 +1,29 @@
-$appName = "AzureADGuestLifecycleMgmt" # Maximum 32 characters
-$adalUrlIdentifier = "https://mindcore.dk/AADGuestLifecycleMgmt"
+$appName = "AzureDGuestLifecycleMgmt" # Maximum 32 characters
+$adalUrlIdentifier = "https://mindcore.dk/AzureADGuestLifecycleMgmt"
 $appReplyUrl = "https://www.mindcore.dk"
-$pwd = Read-Host -Prompt 'Enter a secure password for your certificate!'
+#$pwd = Read-Host -Prompt 'Enter a secure password for your certificate!'
+
+
+do {
+    $pwd = Read-Host "-ENTER A SECURE CERTIFICATE PASSWORD-`n`nYour password must meet the following requirements:  
+`n`nAt least one upper case letter [A-Z]`nAt least one lower case letter [a-z]`nAt least one number [0-9]`nAt least one special character (!,@,%,^,&,$,_)`nPassword length must be 7 to 25 characters.`n`n`nEnter a certificate password"
+
+    if(($pwd -cmatch '[a-z]') -and ($pwd -cmatch '[A-Z]') -and ($pwd -match '\d') -and ($pwd.length -match '^([7-9]|[1][0-9]|[2][0-5])$') -and ($pwd -match '!|@|#|%|^|&|$|_')) 
+{ 
+    Write-Host "`nYour certificate had been saved with your selected password!`n"
+    $validPwd = "True"
+} 
+else
+{ 
+    Write-Host "`nThe password you entered is invalid!`n"
+    
+}
+
+} until (
+ $validPwd -eq "True"
+)
+
+
 $certStore = "Cert:\CurrentUser\My"
 $currentDate = Get-Date
 $endDate = $currentDate.AddYears(10) # 10 years is nice and long
@@ -41,6 +63,8 @@ $reqGraph.ResourceAccess = $appPermission, $appPermission2
 $application = New-AzureADApplication -DisplayName "$appName" -IdentifierUris $adalUrlIdentifier -ReplyUrls $appReplyUrl -RequiredResourceAccess $reqGraph
 New-AzureADApplicationKeyCredential -ObjectId $application.ObjectId -CustomKeyIdentifier "$appName" -Type AsymmetricX509Cert -Usage Verify -Value $keyValue -StartDate $currentDate -EndDate $endDate.AddDays(-1)
 
+Start-Sleep 10 # Give it time to create App Registration
+
 # https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-permissions-and-consent
 $consentUri = "https://login.microsoftonline.com/$($tenant.ObjectId)/adminconsent?client_id=$($application.AppId)&state=12345&redirect_uri=$appReplyUrl"
 $consentUri | clip
@@ -72,12 +96,29 @@ Connect-AzureAD -TenantId $tenant.ObjectId -ApplicationId  $Application.AppId -C
 [Microsoft.Open.Azure.AD.CommonLibrary.AzureSession]::AccessTokens["AccessToken"]
 
 #---------------------------------------------------------------------------------------------------------------------------------------------
-Install-Module -Name Az -AllowClobber
+
+#Install-Module -Name Az -AllowClobber
 Import-Module -Name Az
 #Clear-AzContext
 Connect-AzAccount
 # Create a New Resource Group for AzureADGuestLifecycleMgmt
+Write-Host "Creating Azure resource group." -ForegroundColor Green
+
 $rgName = "RG_"+$appName
 $rgLocation = "West Europe"
 New-AzResourceGroup -Name $rgName -Location $rgLocation
+
+Write-Host "Starting ARM template deployment." -ForegroundColor Green
 New-AzResourceGroupDeployment -ResourceGroupName $rgName -TemplateUri "https://raw.githubusercontent.com/myatix/AzureADGuestLifecycleMgmt/master/guestLifecycleMgmt.json" -TemplateParameterUri "https://raw.githubusercontent.com/myatix/AzureADGuestLifecycleMgmt/master/guestLifecycleMgmt.parameters.json" -Verbose
+
+# Add Certificate to Azure Key Vault.
+Write-Host "Adding certificate to Azure Key Vault." -ForegroundColor Green
+
+$keyVaultName = "AzureADGuestLifecycleMgmt"
+$certificateName = $appName
+$certPwd = Read-Host -Prompt "Enter the password you chose for "+$appName+".pfx"
+$certPwd = ConvertTo-SecureString -String $pwd -AsPlainText -Force
+Import-AzureKeyVaultCertificate -VaultName "$keyVaultName" -Name "$certificateName" -FilePath ".\AzureADGuestLifecycleMgmt.pfx" -Password $certPwd
+
+
+      
