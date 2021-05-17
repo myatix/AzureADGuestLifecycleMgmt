@@ -39,7 +39,7 @@
         },
         "keyVaultName": {
             "type": "String",
-            "defaultValue": "[concat('kv-','guestlifecyclemgmt-', substring(uniqueString(resourceGroup().id), 0, 6))]",
+            "defaultValue": "parameters('functionAppName')",
             "metadata": {
                 "description": "Unique name for the Key Vault"
             }
