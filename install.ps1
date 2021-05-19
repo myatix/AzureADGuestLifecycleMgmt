@@ -65,9 +65,12 @@ $reqGraph = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceA
 $reqGraph.ResourceAppId = $svcPrincipal.AppId
 $reqGraph.ResourceAccess = $appPermission, $appPermission2
 
-# Create Azure Active Directory Application (ADAL App needs upgrading to MSAL)
+# Create Azure Active Directory Application (ADAL)
 $application = New-AzureADApplication -DisplayName $appName -IdentifierUris $adalUrlIdentifier -ReplyUrls $appReplyUrl -RequiredResourceAccess $reqGraph
+#Add AzureAD App Key Credential
 New-AzureADApplicationKeyCredential -ObjectId $application.ObjectId -CustomKeyIdentifier "$appName" -Type AsymmetricX509Cert -Usage Verify -Value $keyValue -StartDate $currentDate -EndDate $expirationDate.AddDays(-1)
+#Add AzureAD App ClientSecret (Not tested)
+New-AzureADApplicationPasswordCredential -ObjectId $application.ObjectId -CustomKeyIdentifier "$appName" -StartDate $currentDate -EndDate $expirationDate.AddDays(-1)
 
 Write-Host "A browser window will open shortly, please login and consent to the security popup and then close the browser window." -ForegroundColor Green
 Start-Sleep 20 # Give it time to create App Registration
@@ -79,24 +82,6 @@ $consentUri | clip
 Write-Host $consentUri -ForegroundColor Blue
 Start-Process "$consentUri"
 Write-Warning "Please make sure you have consented to the Security popup. If not the URL has been copied to your clipboard - paste it into a browser and consent to the popup. Have you approved the consent Popup?" -WarningAction Inquire
-##Read-Host -Prompt "Press ENTER after consenting to the Security popup."
-
-#$sp = Get-AzureADServicePrincipal | Where-Object AppId -eq $application.AppId
-#Get-Variable sp -ValueOnly
-#if (-not $sp) {
-#    # Create the Service Principal and connect it to the Application
-#    $sp = New-AzureADServicePrincipal -AppId $application.AppId 
-#}
-
-
-#$azureDirectoryWriteRoleId = ( Get-AzureADDirectoryRoleTemplate | Where-Object DisplayName -eq "Directory Writers").ObjectId
-#try {
-#    Enable-AzureADDirectoryRole -RoleTemplateId $azureDirectoryWriteRoleId 
-#}
-#catch { }
-
-# Give the application read/write permissions to AAD
-#Add-AzureADDirectoryRoleMember -ObjectId (Get-AzureADDirectoryRole | Where-Object DisplayName -eq "Directory Writers" ).Objectid -RefObjectId $application.ObjectId
 
 $appId = $application.AppId
 $appId > $folderPath\appid.txt

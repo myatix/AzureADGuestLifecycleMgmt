@@ -70,7 +70,7 @@ foreach ($guestInvitation in $arr) {
         $uri = "https://graph.microsoft.com/v1.0/users/$guest/extensions"
         $requestBody = @{
             "@odata.type" = "microsoft.graph.openTypeExtension"
-            extensionName = "ch.nicolonsky.tech.guestManagement"
+            extensionName = "Mindcore.AzureADGuestLifecycleManagement"
             inviterId     = $initiatedBy.user.id
             inviterUpn    = $initiatedBy.user.userPrincipalName
             lastReview    = $guestInvitation.TimeGenerated
