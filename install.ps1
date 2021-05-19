@@ -1,50 +1,56 @@
-$appName = "AzureADGuestLifecycleMgmt" # Maximum 32 characters
-$adalUrlIdentifier = "https://mindcore.dk/AzureADGuestLifecycleMgmt"
-$appReplyUrl = "https://localhost"
-#$pwd = Read-Host -Prompt 'Enter a secure password for your certificate!'
-
-
-do {
-    $pwd = Read-Host "-ENTER A SECURE CERTIFICATE PASSWORD-`n`nYour password must meet the following requirements:  
-`n`nAt least one upper case letter [A-Z]`nAt least one lower case letter [a-z]`nAt least one number [0-9]`nAt least one special character (!,@,#,%,^,&,$,_)`nPassword length must be 7 to 25 characters.`n`n`nEnter a certificate password"
-
-    if(($pwd -cmatch '[a-z]') -and ($pwd -cmatch '[A-Z]') -and ($pwd -match '\d') -and ($pwd.length -match '^([7-9]|[1][0-9]|[2][0-5])$') -and ($pwd -match '!|@|#|%|^|&|$|_')) 
-{ 
-    Write-Host "`nYour certificate had been saved with your selected password!`n"
-    $validPwd = "True"
-} 
-else
-{ 
-    Write-Host "`nThe password you entered is invalid!`n"
-    
+# Run this script as an administrator
+Start-Transcript -Path ".\Logs" -NoClobber -Append
+# region Include required files
+#
+$ScriptDirectory = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
+try {
+    . ("$ScriptDirectory\functions.ps1")
 }
+catch {
+    Write-Host "Error while loading supporting PowerShell Scripts" 
+}
+#endregion
 
-} until (
- $validPwd -eq "True"
-)
+# --- config start
+$adminUser = "admin@M365x439370.onmicrosoft.com"
+$appName = "AzureADGuestLifecycleMgmt" # The Application name bust be a maximum of 32 characters
+$adalUrlIdentifier = "https://mindcore.dk/AzureADGuestLifecycleMgmt"
+$appReplyUrl = "https://mindcore.dk"
+$dnsName = "M365x439370.onmicrosoft.com" # Your DNS name
+$password = "Mindcore2021#" # Certificate password
+#$password = StrongPassword
+$folderPath = ".\certificate" # Where do you want the files to get saved to? The folder needs to exist.
+$fileName = "AzureADGuestLifecycleMgmt" # What do you want to call the cert files? without the file extension
+$currentDate = Get-Date # Get todays date
+$yearsValid = 10 # Number of years until you need to renew the certificate
+$keyVaultName = "guestlifecyclemgmt" # Key Vault Name as specified in ARM Templates.
+$rgLocation = "West Europe" # Azure Resource Group Location 
+# --- config end
+$certStoreLocation = 'cert:\LocalMachine\My'
+$expirationDate = (Get-Date).AddYears($yearsValid)
 
-
-$certStore = "Cert:\CurrentUser\My"
-$currentDate = Get-Date
-$endDate = $currentDate.AddYears(10) # 10 years is nice and long
-$thumb = (New-SelfSignedCertificate -DnsName "mindcore.dk" -CertStoreLocation $certStore -KeyExportPolicy Exportable -Provider "Microsoft Enhanced RSA and AES Cryptographic Provider" -NotAfter $endDate).Thumbprint
-$thumb > certificate\cert-thumb.txt # Save to file
-$pwd = ConvertTo-SecureString -String $pwd -Force -AsPlainText
-Export-PfxCertificate -cert "$certStore\$thumb" -FilePath .\certificate\AzureADGuestLifecycleMgmt.pfx -Password $pwd
-$path = (Get-Item -Path ".\certificate\").FullName
-$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate("$path\AzureADGuestLifecycleMgmt.pfx", $pwd)
+$certificateThumb = (New-SelfSignedCertificate -DnsName $dnsName -CertStoreLocation $certStoreLocation -NotAfter $expirationDate -KeyExportPolicy Exportable -KeySpec Signature).Thumbprint
+$certificateThumb > $folderPath'\certificate-thumb.txt'
+$certificatePath = $certStoreLocation + '\' + $certificateThumb
+$filePath = $folderPath + '\' + $fileName
+$securePassword = ConvertTo-SecureString -String $password -Force -AsPlainText
+Export-Certificate -Cert $certificatePath -FilePath ($filePath + '.cer')
+Export-PfxCertificate -Cert $certificatePath -FilePath ($filePath + '.pfx') -Password $securePassword
+$path = (Get-Item -Path $folderPath).FullName
+$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate("$path\$fileName.pfx", $securePassword)
 $keyValue = [System.Convert]::ToBase64String($cert.GetRawCertData())
+$keyValue > certificate\pfx-encoded.txt
 
 #Install AzureAD PowerShell Module
-Install-Module AzureAD -Force
+Install-Module -Name AzureAD -Force
 Import-Module AzureAD
 
 # Connect to Azure AD as an admin account
-Connect-AzureAD 
+Connect-AzureAD -AccountId $adminUser
 
 # Store tenantid
 $tenant = Get-AzureADTenantDetail
-$tenant.ObjectId > certificate\tenantid.txt
+$tenant.ObjectId > $folderPath\tenantid.txt
 
 # Add AuditLog.Read.All access
 $svcPrincipal = Get-AzureADServicePrincipal -All $true | ? { $_.DisplayName -eq "Microsoft Graph" }
@@ -60,66 +66,75 @@ $reqGraph.ResourceAppId = $svcPrincipal.AppId
 $reqGraph.ResourceAccess = $appPermission, $appPermission2
 
 # Create Azure Active Directory Application (ADAL App needs upgrading to MSAL)
-$application = New-AzureADApplication -DisplayName "$appName" -IdentifierUris $adalUrlIdentifier -ReplyUrls $appReplyUrl -RequiredResourceAccess $reqGraph
-New-AzureADApplicationKeyCredential -ObjectId $application.ObjectId -CustomKeyIdentifier "$appName" -Type AsymmetricX509Cert -Usage Verify -Value $keyValue -StartDate $currentDate -EndDate $endDate.AddDays(-1)
+$application = New-AzureADApplication -DisplayName $appName -IdentifierUris $adalUrlIdentifier -ReplyUrls $appReplyUrl -RequiredResourceAccess $reqGraph
+New-AzureADApplicationKeyCredential -ObjectId $application.ObjectId -CustomKeyIdentifier "$appName" -Type AsymmetricX509Cert -Usage Verify -Value $keyValue -StartDate $currentDate -EndDate $expirationDate.AddDays(-1)
 
-Start-Sleep 10 # Give it time to create App Registration
+Write-Host "A browser window will open shortly, please login and consent to the security popup and then close the browser window." -ForegroundColor Green
+Start-Sleep 20 # Give it time to create App Registration
 
 # https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-permissions-and-consent
 $consentUri = "https://login.microsoftonline.com/$($tenant.ObjectId)/adminconsent?client_id=$($application.AppId)&state=12345&redirect_uri=$appReplyUrl"
 $consentUri | clip
-Write-Host "Consent URL is copied to your clipboard - paste it into a browser, and ignore the redirect" -ForegroundColor Green
+#Write-Host "Please make sure you have consented to the Security popup. If not the URL has been copied to your clipboard - paste it into a browser and consent to the popup." -ForegroundColor Green
 Write-Host $consentUri -ForegroundColor Blue
-Start "$consentUri"
-Read-Host -Prompt "Press ENTER after consenting to the Security popup."
+Start-Process "$consentUri"
+Write-Warning "Please make sure you have consented to the Security popup. If not the URL has been copied to your clipboard - paste it into a browser and consent to the popup. Have you approved the consent Popup?" -WarningAction Inquire
+##Read-Host -Prompt "Press ENTER after consenting to the Security popup."
 
-$sp = Get-AzureADServicePrincipal | ? AppId -eq $application.AppId
-if (-not $sp) {
-    # Create the Service Principal and connect it to the Application
-    $sp = New-AzureADServicePrincipal -AppId $application.AppId 
-}
- 
-$azureDirectoryWriteRoleId = ( Get-AzureADDirectoryRoleTemplate | Where-Object DisplayName -eq "Directory Writers").ObjectId
-try {
-    Enable-AzureADDirectoryRole -RoleTemplateId $azureDirectoryWriteRoleId 
-}
-catch { }
+#$sp = Get-AzureADServicePrincipal | Where-Object AppId -eq $application.AppId
+#Get-Variable sp -ValueOnly
+#if (-not $sp) {
+#    # Create the Service Principal and connect it to the Application
+#    $sp = New-AzureADServicePrincipal -AppId $application.AppId 
+#}
+
+
+#$azureDirectoryWriteRoleId = ( Get-AzureADDirectoryRoleTemplate | Where-Object DisplayName -eq "Directory Writers").ObjectId
+#try {
+#    Enable-AzureADDirectoryRole -RoleTemplateId $azureDirectoryWriteRoleId 
+#}
+#catch { }
 
 # Give the application read/write permissions to AAD
-Add-AzureADDirectoryRoleMember -ObjectId (Get-AzureADDirectoryRole | Where-Object DisplayName -eq "Directory Writers" ).Objectid -RefObjectId $sp.ObjectId
+#Add-AzureADDirectoryRoleMember -ObjectId (Get-AzureADDirectoryRole | Where-Object DisplayName -eq "Directory Writers" ).Objectid -RefObjectId $application.ObjectId
 
 $appId = $application.AppId
-$appId > certificate\appid.txt
+$appId > $folderPath\appid.txt
 
-Start-Sleep 10 # give it some seconds before connecting
-Connect-AzureAD -TenantId $tenant.ObjectId -ApplicationId  $Application.AppId -CertificateThumbprint $thumb
+Start-Sleep 10 # Give it time before connecting
+Connect-AzureAD -TenantId $tenant.ObjectId -ApplicationId  $Application.AppId -CertificateThumbprint $certificateThumb
 
 [Microsoft.Open.Azure.AD.CommonLibrary.AzureSession]::AccessTokens["AccessToken"]
 
-#---------------------------------------------------------------------------------------------------------------------------------------------
+Disconnect-AzureAD
 
-#Install-Module -Name Az -AllowClobber
-Import-Module -Name Az
+###################################################################################################################
+# Start ARM Template Deployment
+
+Write-Warning "Do you wish to continue the deployment and setup the application in Azure?" -WarningAction Inquire
+
+#Install AZ PowerShell Modules
+Import-Module -Name Az -Force
 #Clear-AzContext
-Connect-AzAccount -Tenant "$tenant.ObjectId"
-# Create a New Resource Group for AzureADGuestLifecycleMgmt
-Write-Host "Creating Azure resource group." -ForegroundColor Green
+Connect-AzAccount -Tenant $tenant.ObjectId
 
+# Create a New Resource Group for AzureADGuestLifecycleMgmt
+Write-Host "Creating the Azure resource group." -ForegroundColor Green
 $rgName = "RG_"+$appName
-$rgLocation = "West Europe"
 New-AzResourceGroup -Name $rgName -Location $rgLocation
 
+# Start Azure Resource Manager Template Deployment
 Write-Host "Starting ARM template deployment." -ForegroundColor Green
 New-AzResourceGroupDeployment -ResourceGroupName $rgName -TemplateUri "https://raw.githubusercontent.com/myatix/AzureADGuestLifecycleMgmt/master/guestLifecycleMgmt.json" -TemplateParameterUri "https://raw.githubusercontent.com/myatix/AzureADGuestLifecycleMgmt/master/guestLifecycleMgmt.parameters.json" -Verbose
 
+#Set Key Vault Access Policies
+#$objectID = $application.ObjectId
+Set-AzKeyVaultAccessPolicy -VaultName $keyVaultName -ServicePrincipalName $appId -PermissionsToSecrets get -PermissionsToCertificates get
+Set-AzKeyVaultAccessPolicy -VaultName $keyVaultName -UserPrincipalName $adminUser -PermissionsToSecrets all -PermissionsToCertificates all -PermissionsToKeys all
+
 # Add Certificate to Azure Key Vault.
 Write-Host "Adding certificate to Azure Key Vault." -ForegroundColor Green
+Import-AzKeyVaultCertificate -VaultName $keyVaultName -Name $fileName -FilePath ($filePath + '.pfx') -Password $securePassword
 
-$keyVaultName = "AzureADGuestLifecycleMgmt"
-$certificateName = $appName
-$certPwd = Read-Host -Prompt "Please enter the password you specified for the certificate.
-$certPwd = ConvertTo-SecureString -String $pwd -AsPlainText -Force
-Import-AzureKeyVaultCertificate -VaultName "$keyVaultName" -Name "$certificateName" -FilePath ".\AzureADGuestLifecycleMgmt.pfx" -Password $certPwd
-
-
-      
+Stop-Transcript
+Write-Host "Installation Complete" -ForegroundColor Green
