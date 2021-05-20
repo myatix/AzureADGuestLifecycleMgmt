@@ -16,6 +16,8 @@ AuditLogs
 | where OperationName == 'Invite external user' and Result == 'success'
 "@
 
+Install-Module Az.OperationalInsights
+
 $queryResults = Invoke-AzOperationalInsightsQuery -WorkspaceId $workspaceId -Query $query -ErrorAction Stop
 $guestInvitations = [System.Linq.Enumerable]::ToArray($queryResults.Results)
 $azureADUsers = Get-AzureADUser -All:$true -EA Stop

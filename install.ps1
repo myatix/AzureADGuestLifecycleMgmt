@@ -17,8 +17,8 @@ $appName = "AzureADGuestLifecycleMgmt" # The Application name bust be a maximum 
 $adalUrlIdentifier = "https://mindcore.dk/AzureADGuestLifecycleMgmt"
 $appReplyUrl = "https://mindcore.dk"
 $dnsName = "M365x439370.onmicrosoft.com" # Your DNS name
-$password = "Mindcore2021#" # Certificate password
-#$password = StrongPassword
+#$password = "P@ssw0rd1" # Certificate password
+$password = StrongPassword
 $folderPath = ".\certificate" # Where do you want the files to get saved to? The folder needs to exist.
 $fileName = "AzureADGuestLifecycleMgmt" # What do you want to call the cert files? without the file extension
 $currentDate = Get-Date # Get todays date
@@ -105,12 +105,12 @@ Connect-AzAccount -Tenant $tenant.ObjectId
 
 # Create a New Resource Group for AzureADGuestLifecycleMgmt
 Write-Host "Creating the Azure resource group." -ForegroundColor Green
-$rgName = "RG_"+$appName
-New-AzResourceGroup -Name $rgName -Location $rgLocation
+$resourceGroup = "RG_"+$appName
+New-AzResourceGroup -Name $resourceGroup -Location $rgLocation
 
 # Start Azure Resource Manager Template Deployment
 Write-Host "Starting ARM template deployment." -ForegroundColor Green
-New-AzResourceGroupDeployment -ResourceGroupName $rgName -TemplateUri "https://raw.githubusercontent.com/myatix/AzureADGuestLifecycleMgmt/master/guestLifecycleMgmt.json" -TemplateParameterUri "https://raw.githubusercontent.com/myatix/AzureADGuestLifecycleMgmt/master/guestLifecycleMgmt.parameters.json" -Verbose
+New-AzResourceGroupDeployment -ResourceGroupName $resourceGroup -TemplateUri "https://raw.githubusercontent.com/myatix/AzureADGuestLifecycleMgmt/master/guestLifecycleMgmt.json" -TemplateParameterUri "https://raw.githubusercontent.com/myatix/AzureADGuestLifecycleMgmt/master/guestLifecycleMgmt.parameters.json" -Verbose
 
 #Set Key Vault Access Policies
 #$objectID = $application.ObjectId
@@ -120,6 +120,44 @@ Set-AzKeyVaultAccessPolicy -VaultName $keyVaultName -UserPrincipalName $adminUse
 # Add Certificate to Azure Key Vault.
 Write-Host "Adding certificate to Azure Key Vault." -ForegroundColor Green
 Import-AzKeyVaultCertificate -VaultName $keyVaultName -Name $fileName -FilePath ($filePath + '.pfx') -Password $securePassword
+
+###############################################################################################################################
+# Add Log Analytics Workspace
+Write-Warning "Do you want to create a new Log Analytics Workspace for $appName" -WarningAction Inquire
+
+
+$WorkspaceName = "log-analytics-" + $appName # workspace names need to be unique in resource group - Get-Random helps with this for the example code
+
+# Create the resource group if needed
+try {
+    Get-AzResourceGroup -Name $ResourceGroup -ErrorAction Stop
+} catch {
+    New-AzResourceGroup -Name $ResourceGroup -Location $rgLocation
+}
+
+# Create the workspace
+New-AzOperationalInsightsWorkspace -Location $rgLocation -Name $WorkspaceName -Sku Standard -ResourceGroupName $ResourceGroup
+
+# Saved Searches to import
+$ExportedSearches = @"
+[
+    {
+        "Category":  "My Saved Searches",
+        "DisplayName":  "New Guest Invitations",
+        "Query":  "AuditLogs | where OperationName == 'Invite external user' and Result == 'success'",
+        "Version":  1
+    }
+]
+"@
+
+# Import Saved Searches
+foreach ($search in $ExportedSearches) {
+    $id = $search.Category + "|" + $search.DisplayName
+    New-AzOperationalInsightsSavedSearch -ResourceGroupName $ResourceGroup -WorkspaceName $WorkspaceName -SavedSearchId $id -DisplayName $search.DisplayName -Category $search.Category -Query $search.Query -Version $search.Version
+}
+
+# Work in progress
+#New-AzScheduledQueryRule -Location $rgLocation -Action $alertingAction -Enabled $true -Description "log alert foo" -Schedule $schedule -Source $source -Name "New Guest Invitations"
 
 Stop-Transcript
 Write-Host "Installation Complete" -ForegroundColor Green

@@ -59,7 +59,7 @@ if ($userId) {
     }
 
     # Get open extension info
-    $uri = "https://graph.microsoft.com/v1.0/users/$userId/extensions/Mindcore.AzureADGuestLifecycleManagement"
+    $uri = "https://graph.microsoft.com/v1.0/users/$userId/extensions/dk.mindcore.AzureADGuestLifecycleManagement"
     try {
         $openExtensionInfo = Invoke-WebRequest -Uri $uri -Headers $authHeader
         $openExtensionInfo = $openExtensionInfo.Content | ConvertFrom-Json

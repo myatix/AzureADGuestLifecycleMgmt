@@ -30,7 +30,7 @@ $guest = $Request.body.guestUserId
 if ($guest) {
     try {
         # Update Extension Attributes
-        $uri = "https://graph.microsoft.com/v1.0/users/$guest/extensions/Mindcore.AzureADGuestLifecycleManagement"
+        $uri = "https://graph.microsoft.com/v1.0/users/$guest/extensions/dk.mindcore.AzureADGuestLifecycleManagement"
         $requestBody = @{
             inviterId  = $Request.body.inviterId
             inviterUpn = $Request.body.inviterUpn
@@ -43,7 +43,7 @@ if ($guest) {
         $uri = "https://graph.microsoft.com/v1.0/users/$guest/extensions"
         $requestBody = @{
             "@odata.type" = "microsoft.graph.openTypeExtension"
-            extensionName = "Mindcore.AzureADGuestLifecycleManagement"
+            extensionName = "dk.mindcore.AzureADGuestLifecycleManagement"
             lastReview    = $guestInvitation.TimeGenerated
         }
         $null = Invoke-WebRequest -Method Post -Body $($requestBody | ConvertTo-Json) -Uri $uri -Headers $authHeader
